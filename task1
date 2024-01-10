@@ -1,0 +1,129 @@
+#!/bin/bash
+
+# Constants
+VERSION="v0.1.0"
+
+# Help function
+function help() {
+  cat <<EOF
+internsctl - A custom command for system operations
+
+Usage: internsctl <command> [options]
+
+Commands:
+  cpu getinfo      Get CPU information
+  memory getinfo   Get memory information
+  user create <username>   Create a new user
+  user list         List all regular users
+  user list --sudo-only  List users with sudo permissions
+  file getinfo [options] <file-name>  Get file information
+
+Options:
+  --help       Show this help message
+  --version    Show version
+
+File information options:
+  --size, -s    Print file size
+  --permissions, -p   Print file permissions
+  --owner, -o        Print file owner
+  --last-modified, -m  Print last modified time
+EOF
+}
+
+# Version function
+function version() {
+  echo "internsctl $VERSION"
+}
+
+# Main function to dispatch commands
+function main() {
+  case "$1" in
+    cpu)
+      cpu_command "$2"
+      ;;
+    memory)
+      memory_command "$2"
+      ;;
+    user)
+      user_command "$2" "$3"
+      ;;
+    file)
+      file_command "$2" "${@:3}"
+      ;;
+    --help)
+      help
+      ;;
+    --version)
+      version
+      ;;
+    *)
+      echo "Invalid command. Use 'internsctl --help' for usage."
+      ;;
+  esac
+}
+
+# CPU command
+function cpu_command() {
+  lscpu
+}
+
+# Memory command
+function memory_command() {
+  free
+}
+
+# User commands
+function user_create() {
+  useradd "$1"
+  echo "User $1 created successfully."
+}
+
+function user_list() {
+  if [[ "$1" == "--sudo-only" ]]; then
+    getent group sudo | cut -d: -f4
+  else
+    cut -d: -f1 /etc/passwd
+  fi
+}
+
+# File command
+function file_command() {
+  filename="$2"
+  if [[ -f "$filename" ]]; then
+    if [[ "$1" == "getinfo" ]]; then
+      file_getinfo "$filename" "${@:3}"
+    fi
+  else
+    echo "Error: File '$filename' not found."
+  fi
+}
+
+function file_getinfo() {
+  if [[ "$#" -eq 1 ]]; then
+    stat --printf="File: %n\nAccess: %a\nSize(B): %s\nOwner: %U\nModify: %y\n" "$1"
+  else
+    while [[ "$#" -gt 0 ]]; do
+      case "$1" in
+        --size|-s)
+          stat --printf="%s\n" "$filename"
+          ;;
+        --permissions|-p)
+          stat --printf="%a\n" "$filename"
+          ;;
+        --owner|-o)
+          stat --printf="%U\n" "$filename"
+          ;;
+        --last-modified|-m)
+          stat --printf="%y\n" "$filename"
+          ;;
+        *)
+          echo "Invalid option: $1"
+          ;;
+      esac
+      shift
+    done
+  fi
+}
+
+# Call the main function
+main "$@"
